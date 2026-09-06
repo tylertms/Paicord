@@ -216,18 +216,33 @@ public struct DefaultDiscordClient: DiscordClient {
     requestId: UInt,
     retriesSoFar: Int
   ) async throws {
-    switch await Self.rateLimiter.shouldRequest(to: endpoint) {
-    case .true: return
-    case .false:
-      /// `HTTPRateLimiter` already logs this.
-      throw DiscordHTTPError.rateLimited(url: "\(endpoint.urlDescription)")
-    case .after(let after):
-      /// If we make the request, we'll get 429-ed. So we can just assume the status is 429.
-      if self.configuration.shouldRetry(
-        status: .tooManyRequests,
-        retriesSoFar: retriesSoFar,
-        challengeSolved: false
-      ) {
+    while true {
+      switch await Self.rateLimiter.shouldRequest(to: endpoint) {
+      case .true:
+        return
+      case .false:
+        throw DiscordHTTPError.rateLimited(url: "\(endpoint.urlDescription)")
+      case .after(let after):
+        guard
+          self.configuration.shouldRetry(
+            status: .tooManyRequests,
+            retriesSoFar: retriesSoFar,
+            challengeSolved: false
+          )
+        else {
+          logger.warning(
+            "HTTP bucket is exhausted. Retry policy does not allow retry",
+            metadata: [
+              "solution":
+                "Make requests slower or increase 'configuration.retryPolicy.backoff.basedOnHeaders.maxAllowed'",
+              "wait-time": .stringConvertible(after),
+              "retriesWithoutThis": .stringConvertible(retriesSoFar),
+              "endpoint": .stringConvertible(endpoint.urlDescription),
+              "request-id": .stringConvertible(requestId),
+            ]
+          )
+          throw DiscordHTTPError.rateLimited(url: "\(endpoint.urlDescription)")
+        }
         logger.debug(
           "HTTP bucket is exhausted. Will wait before making the request",
           metadata: [
@@ -239,20 +254,6 @@ public struct DefaultDiscordClient: DiscordClient {
         )
         let nanos = UInt64(after * 1_000_000_000)
         try await Task.sleep(for: .nanoseconds(nanos))
-        await Self.rateLimiter.addGlobalRateLimitRecord()
-      } else {
-        logger.warning(
-          "HTTP bucket is exhausted. Retry policy does not allow retry",
-          metadata: [
-            "solution":
-              "Make requests slower or increase 'configuration.retryPolicy.backoff.basedOnHeaders.maxAllowed'",
-            "wait-time": .stringConvertible(after),
-            "retriesWithoutThis": .stringConvertible(retriesSoFar),
-            "endpoint": .stringConvertible(endpoint.urlDescription),
-            "request-id": .stringConvertible(requestId),
-          ]
-        )
-        throw DiscordHTTPError.rateLimited(url: "\(endpoint.urlDescription)")
       }
     }
   }
