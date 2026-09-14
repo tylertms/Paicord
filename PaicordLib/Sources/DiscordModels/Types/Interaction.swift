@@ -489,70 +489,77 @@ extension Interaction {
   /// Due to Discord reusing the components field, this enum exists to allow you to send either legacy components or the new components v2.
   /// This does not represent any actual Discord structure. It will try to parse legacy components first, and if that fails it will assume it's v2 components.
   public enum ComponentSwitch: Sendable, Codable, Equatable, Hashable {
-    var legacy: [ActionRow]? {
-      if case .legacy(let actionRows) = self {
-        return actionRows
-      }
-      return nil
-    }
-
-    var v2: Void? {
-      if case .v2 = self {
-        return ()
-      }
-      return nil
-    }
-
-    public static func == (
-      lhs: Interaction.ComponentSwitch,
-      rhs: Interaction.ComponentSwitch
-    )
-      -> Bool
-    {
-      switch (lhs, rhs) {
-      case (.legacy(let a), .legacy(let b)):
-        return a == b
-      case (.v2, .v2):
-        return true  // TODO: implement when v2 components are defined
-      default:
-        return false
-      }
-    }
-
-    public func hash(into hasher: inout Hasher) {
-      switch self {
-      case .legacy(let actionRows):
-        hasher.combine("legacy")
-        hasher.combine(actionRows)
-      case .v2:
-        hasher.combine("v2")
-      // No properties to hash for v2 yet
-      }
-    }
-
     case legacy([ActionRow])
-    case v2(Void)  // Placeholder for future v2 components
+    case v2([DisplayComponent])
+
+    public var legacy: [ActionRow]? {
+      if case .legacy(let rows) = self { return rows }
+      return nil
+    }
+
+    public var v2: [DisplayComponent]? {
+      if case .v2(let components) = self { return components }
+      return nil
+    }
+
+    /// A common display tree for both generations of message components.
+    public var displayComponents: [DisplayComponent] {
+      switch self {
+      case .v2(let components): return components
+      case .legacy(let rows):
+        guard let data = try? JSONEncoder().encode(rows) else { return [] }
+        return (try? JSONDecoder().decode([DisplayComponent].self, from: data)) ?? []
+      }
+    }
 
     public init(from decoder: any Decoder) throws {
-      var container = try decoder.unkeyedContainer()
-      if let actionRows = try? container.decode([ActionRow].self) {
-        self = .legacy(actionRows)
-      } else {
-        self = .v2(())
-      }
+      let container = try decoder.singleValueContainer()
+      self = .v2(try container.decode([DisplayComponent].self))
     }
 
     public func encode(to encoder: any Encoder) throws {
-      var container = encoder.unkeyedContainer()
+      var container = encoder.singleValueContainer()
       switch self {
-      case .legacy(let actionRows):
-        try container.encode(actionRows)
-      case .v2:
-        // No encoding for v2 components yet
-        break
+      case .legacy(let rows): try container.encode(rows)
+      case .v2(let components): try container.encode(components)
       }
     }
+  }
 
+  /// Receive-side display fields, including unknown component kinds.
+  /// https://docs.discord.com/developers/components/reference
+  public struct DisplayComponent: Sendable, Codable, Equatable, Hashable {
+    public var type: Int
+    public var id: Int?
+    public var content: String?
+    public var label: String?
+    public var description: String?
+    public var placeholder: String?
+    public var url: String?
+    public var custom_id: String?
+    public var style: Int?
+    public var disabled: Bool?
+    public var spoiler: Bool?
+    public var divider: Bool?
+    public var accent_color: Int?
+    public var components: [DisplayComponent]?
+    public var accessory: DereferenceBox<DisplayComponent>?
+    public var media: Media?
+    public var file: Media?
+    public var items: [GalleryItem]?
+
+    public struct Media: Sendable, Codable, Equatable, Hashable {
+      public var url: String
+      public var proxy_url: String?
+      public var content_type: String?
+      public var width: Int?
+      public var height: Int?
+    }
+    public struct GalleryItem: Sendable, Codable, Equatable, Hashable {
+      public var media: Media
+      public var description: String?
+      public var spoiler: Bool?
+    }
   }
 
   /// https://discord.com/developers/docs/interactions/message-components#action-rows
