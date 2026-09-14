@@ -99,7 +99,8 @@ public struct Gateway: Sendable, Codable {
       case identify(Identify)
       case hello(Hello)
       case ready(Ready)
-      case readySupplemental(ReadySupplemental)  // TODO
+      case readySupplemental(ReadySupplemental)
+      case passiveUpdateV1(PassiveUpdateV1)
       /// Is sent when we want to send a resume request
       case resume(Resume)
       /// Is received when Discord has ended replying our lost events, after a resume
@@ -510,6 +511,8 @@ public struct Gateway: Sendable, Codable {
         switch self.type {
         case "READY":
           self.data = try .ready(decodeData())
+        case "PASSIVE_UPDATE_V1":
+          self.data = try .passiveUpdateV1(decodeData())
         case "READY_SUPPLEMENTAL":
           self.data = try .readySupplemental(decodeData())
         case "RESUMED":

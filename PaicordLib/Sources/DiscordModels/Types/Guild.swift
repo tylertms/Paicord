@@ -460,6 +460,7 @@ public struct Guild: Sendable, Codable, Hashable, Equatable, Identifiable {
   public var owner: Bool?
   public var owner_id: UserSnowflake
   public var channels: [DiscordChannel]?
+  public var voice_states: [PartialVoiceState]?
   public var threads: [DiscordChannel]?
   public var permissions: StringBitField<Permission>?
   public var afk_channel_id: ChannelSnowflake?

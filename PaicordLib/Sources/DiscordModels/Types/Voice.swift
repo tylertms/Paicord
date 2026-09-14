@@ -16,7 +16,7 @@ public struct VoiceState: Sendable, Codable {
 }
 
 /// https://discord.com/developers/docs/resources/voice#voice-state-object-voice-state-structure
-public struct PartialVoiceState: Sendable, Codable {
+public struct PartialVoiceState: Sendable, Codable, Hashable {
   public var channel_id: ChannelSnowflake?
   public var user_id: UserSnowflake
   public var member: Guild.PartialMember?

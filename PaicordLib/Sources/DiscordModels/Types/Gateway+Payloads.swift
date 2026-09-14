@@ -446,9 +446,19 @@ extension Gateway {
     public var auth_token: Secret?
   }
 
+  public struct PassiveUpdateV1: Sendable, Codable {
+    public var guild_id: GuildSnowflake
+    public var voice_states: [PartialVoiceState]?
+  }
+
   /// https://docs.discord.food/topics/gateway-events#ready-supplemental
   public struct ReadySupplemental: Sendable, Codable {
+    public struct VoiceGuild: Sendable, Codable {
+      public var id: GuildSnowflake
+      public var voice_states: [PartialVoiceState]?
+    }
 
+    public var guilds: [VoiceGuild]?
   }
 
   /// https://docs.discord.food/topics/gateway-events#auth-session-change
