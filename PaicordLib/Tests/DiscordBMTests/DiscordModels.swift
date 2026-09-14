@@ -7,6 +7,66 @@ import XCTest
 
 class DiscordModelsTests: XCTestCase {
 
+  func testVoiceMessagePayloadEncoding() throws {
+    let voiceAttachment = Payloads.Attachment(
+      index: 0,
+      filename: "voice-message.m4a",
+      content_type: "audio/mp4",
+      duration_secs: 1.5,
+      waveform: "waveform"
+    )
+    let voiceMessage = Payloads.CreateMessage(
+      attachments: [voiceAttachment],
+      flags: [.isVoiceMessage],
+      enforce_nonce: true
+    )
+    XCTAssertTrue(voiceMessage.validate().isEmpty)
+
+    let data = try JSONEncoder().encode(voiceMessage)
+    let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    XCTAssertEqual(json["enforce_nonce"] as? Bool, true)
+    let attachment = try XCTUnwrap((json["attachments"] as? [[String: Any]])?.first)
+    XCTAssertEqual(attachment["duration_secs"] as? Double, 1.5)
+    XCTAssertEqual(attachment["waveform"] as? String, "waveform")
+  }
+
+  func testVoiceMessageRejectsInvalidContentAndMetadata() {
+    let missingMetadata = Payloads.Attachment(index: 0, filename: "voice-message.m4a")
+    XCTAssertFalse(
+      Payloads.CreateMessage(attachments: [missingMetadata], flags: [.isVoiceMessage])
+        .validate().isEmpty
+    )
+    XCTAssertFalse(
+      Payloads.CreateMessage(content: "text", flags: [.isVoiceMessage]).validate().isEmpty
+    )
+  }
+
+  func testForwardedMessageRequiresSourceIdentifiers() {
+    let reference = DiscordChannel.Message.MessageReference(
+      type: .forward,
+      message_id: "1",
+      channel_id: "2"
+    )
+    XCTAssertTrue(Payloads.CreateMessage(message_reference: reference).validate().isEmpty)
+    XCTAssertFalse(
+      Payloads.CreateMessage(message_reference: .init(type: .forward)).validate().isEmpty
+    )
+  }
+
+  func testEmptyMessageFailsValidation() {
+    XCTAssertFalse(Payloads.CreateMessage().validate().isEmpty)
+  }
+
+  func testChannelDecodesAppliedTagsAndMessageRequestState() throws {
+    let data = Data(
+      #"{"id":"1","type":1,"applied_tags":["2"],"is_message_request":true,"is_spam":false}"#.utf8
+    )
+    let channel = try JSONDecoder().decode(DiscordChannel.self, from: data)
+    XCTAssertEqual(channel.applied_tags, ["2"])
+    XCTAssertEqual(channel.is_message_request, true)
+    XCTAssertEqual(channel.is_spam, false)
+  }
+
   func testPreloadedUserSettingsStatusSettingsGatewayStatus() throws {
     var statusSettings =
       DiscordProtos_DiscordUsers_V1_PreloadedUserSettings.StatusSettings()
