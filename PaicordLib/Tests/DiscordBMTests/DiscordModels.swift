@@ -84,6 +84,10 @@ class DiscordModelsTests: XCTestCase {
       (.messaging(.refreshAttachmentURLs), "attachments/refresh-urls", "POST"),
       (.messaging(.acceptMessageRequest(channelId: "1")), "channels/1/recipients/@me", "PUT"),
       (.messaging(.rejectMessageRequest(channelId: "1")), "channels/1/recipients/@me", "DELETE"),
+      (.messaging(.searchChannelMessages(channelId: "1")), "channels/1/messages/search", "GET"),
+      (.messaging(.searchGuildMessages(guildId: "1")), "guilds/1/messages/search", "GET"),
+      (.messaging(.searchThreads(channelId: "1")), "channels/1/threads/search", "GET"),
+      (.messaging(.updateGuildSettings(guildId: "1")), "users/@me/guilds/1/settings", "PATCH"),
     ]
 
     for (endpoint, path, method) in endpoints {
@@ -103,6 +107,21 @@ class DiscordModelsTests: XCTestCase {
       Payloads.RefreshAttachmentURLs(attachment_urls: Array(repeating: "url", count: 51))
         .validate().isEmpty
     )
+  }
+
+  func testGuildSettingsPayloadPreservesExplicitNulls() throws {
+    let payload = Payloads.UpdateUserGuildSettings(
+      muted: false,
+      mute_config: .some(nil),
+      channel_overrides: [
+        "2": .init(muted: false, mute_config: .some(nil))
+      ]
+    )
+    let data = try JSONEncoder().encode(payload)
+    let json = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    XCTAssertTrue(json["mute_config"] is NSNull)
+    let overrides = try XCTUnwrap(json["channel_overrides"] as? [String: [String: Any]])
+    XCTAssertTrue(overrides["2"]?["mute_config"] is NSNull)
   }
 
   func testPreloadedUserSettingsStatusSettingsGatewayStatus() throws {

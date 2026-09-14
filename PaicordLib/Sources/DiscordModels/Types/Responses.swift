@@ -86,4 +86,37 @@ public enum Responses {
 
     public var refreshed_urls: [Item]
   }
+
+  public struct SearchMessages: Sendable, Codable {
+    public struct Hit: Sendable, Codable {
+      public var message: DiscordChannel.Message
+      public var hit: Bool?
+
+      private enum CodingKeys: String, CodingKey {
+        case hit
+      }
+
+      public init(from decoder: any Decoder) throws {
+        message = try DiscordChannel.Message(from: decoder)
+        hit = try decoder.container(keyedBy: CodingKeys.self).decodeIfPresent(
+          Bool.self, forKey: .hit)
+      }
+
+      public func encode(to encoder: any Encoder) throws {
+        try message.encode(to: encoder)
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(hit, forKey: .hit)
+      }
+    }
+
+    public var messages: [[Hit]]?
+    public var total_results: Int?
+  }
+
+  public struct SearchThreads: Sendable, Codable {
+    public var threads: [DiscordChannel]
+    public var has_more: Bool
+    public var first_messages: [DiscordChannel.Message]?
+    public var members: [ThreadMember]?
+  }
 }

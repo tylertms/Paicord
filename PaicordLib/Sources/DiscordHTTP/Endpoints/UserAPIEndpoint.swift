@@ -11,6 +11,10 @@ public enum UserMessagingEndpoint: Sendable, Hashable, CustomStringConvertible {
   case refreshAttachmentURLs
   case acceptMessageRequest(channelId: ChannelSnowflake)
   case rejectMessageRequest(channelId: ChannelSnowflake)
+  case searchChannelMessages(channelId: ChannelSnowflake)
+  case searchGuildMessages(guildId: GuildSnowflake)
+  case searchThreads(channelId: ChannelSnowflake)
+  case updateGuildSettings(guildId: GuildSnowflake)
 
   var path: String {
     switch self {
@@ -25,14 +29,23 @@ public enum UserMessagingEndpoint: Sendable, Hashable, CustomStringConvertible {
       "attachments/refresh-urls"
     case .acceptMessageRequest(let channelId), .rejectMessageRequest(let channelId):
       "channels/\(channelId.rawValue)/recipients/@me"
+    case .searchChannelMessages(let channelId):
+      "channels/\(channelId.rawValue)/messages/search"
+    case .searchGuildMessages(let guildId):
+      "guilds/\(guildId.rawValue)/messages/search"
+    case .searchThreads(let channelId):
+      "channels/\(channelId.rawValue)/threads/search"
+    case .updateGuildSettings(let guildId):
+      "users/@me/guilds/\(guildId.rawValue)/settings"
     }
   }
 
   var httpMethod: HTTPMethod {
     switch self {
-    case .listPins: .GET
+    case .listPins, .searchChannelMessages, .searchGuildMessages, .searchThreads: .GET
     case .pinMessage, .voteInPoll, .acceptMessageRequest: .PUT
     case .refreshAttachmentURLs: .POST
+    case .updateGuildSettings: .PATCH
     case .unpinMessage, .rejectMessageRequest: .DELETE
     }
   }
@@ -48,6 +61,10 @@ public enum UserMessagingEndpoint: Sendable, Hashable, CustomStringConvertible {
       [channelId.rawValue, messageId.rawValue]
     case .refreshAttachmentURLs:
       []
+    case .searchChannelMessages(let channelId), .searchThreads(let channelId):
+      [channelId.rawValue]
+    case .searchGuildMessages(let guildId), .updateGuildSettings(let guildId):
+      [guildId.rawValue]
     }
   }
 
@@ -60,6 +77,10 @@ public enum UserMessagingEndpoint: Sendable, Hashable, CustomStringConvertible {
     case .refreshAttachmentURLs: 190
     case .acceptMessageRequest: 191
     case .rejectMessageRequest: 192
+    case .searchChannelMessages: 193
+    case .searchGuildMessages: 194
+    case .searchThreads: 195
+    case .updateGuildSettings: 196
     }
   }
 
@@ -77,6 +98,14 @@ public enum UserMessagingEndpoint: Sendable, Hashable, CustomStringConvertible {
       "acceptMessageRequest(channelId: \(channelId.rawValue))"
     case .rejectMessageRequest(let channelId):
       "rejectMessageRequest(channelId: \(channelId.rawValue))"
+    case .searchChannelMessages(let channelId):
+      "searchChannelMessages(channelId: \(channelId.rawValue))"
+    case .searchGuildMessages(let guildId):
+      "searchGuildMessages(guildId: \(guildId.rawValue))"
+    case .searchThreads(let channelId):
+      "searchThreads(channelId: \(channelId.rawValue))"
+    case .updateGuildSettings(let guildId):
+      "updateGuildSettings(guildId: \(guildId.rawValue))"
     }
   }
 }

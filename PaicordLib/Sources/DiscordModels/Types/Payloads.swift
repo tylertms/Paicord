@@ -3242,7 +3242,86 @@ public enum Payloads {
   /// https://docs.discord.food/resources/user-settings-proto#json-params
   public struct ModifyUserSettingsProto: Sendable, Codable, ValidatablePayload {
     public var settings: DiscordModels.UserSettingsProto
-    public var required_data_version: UInt32  // get this from within the last fetched proto
+    public var required_data_version: UInt32?
+
+    public init(
+      settings: DiscordModels.UserSettingsProto,
+      required_data_version: UInt32? = nil
+    ) {
+      self.settings = settings
+      self.required_data_version = required_data_version
+    }
+
+    public func validate() -> [ValidationFailure] {}
+  }
+
+  public struct UpdateUserGuildSettings: Sendable, Encodable, ValidatablePayload {
+    public struct MuteConfig: Sendable, Encodable {
+      public var selected_time_window: Int?
+      public var end_time: DiscordTimestamp?
+
+      public init(selected_time_window: Int?, end_time: DiscordTimestamp?) {
+        self.selected_time_window = selected_time_window
+        self.end_time = end_time
+      }
+    }
+
+    public struct ChannelOverride: Sendable, Encodable {
+      public var muted: Bool
+      public var mute_config: MuteConfig??
+
+      public init(muted: Bool, mute_config: MuteConfig?? = nil) {
+        self.muted = muted
+        self.mute_config = mute_config
+      }
+
+      private enum CodingKeys: String, CodingKey {
+        case muted, mute_config
+      }
+
+      public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(muted, forKey: .muted)
+        if let mute_config {
+          if let mute_config {
+            try container.encode(mute_config, forKey: .mute_config)
+          } else {
+            try container.encodeNil(forKey: .mute_config)
+          }
+        }
+      }
+    }
+
+    public var muted: Bool?
+    public var mute_config: MuteConfig??
+    public var channel_overrides: [String: ChannelOverride]?
+
+    public init(
+      muted: Bool? = nil,
+      mute_config: MuteConfig?? = nil,
+      channel_overrides: [String: ChannelOverride]? = nil
+    ) {
+      self.muted = muted
+      self.mute_config = mute_config
+      self.channel_overrides = channel_overrides
+    }
+
+    private enum CodingKeys: String, CodingKey {
+      case muted, mute_config, channel_overrides
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+      var container = encoder.container(keyedBy: CodingKeys.self)
+      try container.encodeIfPresent(muted, forKey: .muted)
+      if let mute_config {
+        if let mute_config {
+          try container.encode(mute_config, forKey: .mute_config)
+        } else {
+          try container.encodeNil(forKey: .mute_config)
+        }
+      }
+      try container.encodeIfPresent(channel_overrides, forKey: .channel_overrides)
+    }
 
     public func validate() -> [ValidationFailure] {}
   }
