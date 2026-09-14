@@ -3,6 +3,84 @@
 import DiscordModels
 import NIOHTTP1
 
+public enum UserMessagingEndpoint: Sendable, Hashable, CustomStringConvertible {
+  case listPins(channelId: ChannelSnowflake)
+  case pinMessage(channelId: ChannelSnowflake, messageId: MessageSnowflake)
+  case unpinMessage(channelId: ChannelSnowflake, messageId: MessageSnowflake)
+  case voteInPoll(channelId: ChannelSnowflake, messageId: MessageSnowflake)
+  case refreshAttachmentURLs
+  case acceptMessageRequest(channelId: ChannelSnowflake)
+  case rejectMessageRequest(channelId: ChannelSnowflake)
+
+  var path: String {
+    switch self {
+    case .listPins(let channelId):
+      "channels/\(channelId.rawValue)/messages/pins"
+    case .pinMessage(let channelId, let messageId),
+      .unpinMessage(let channelId, let messageId):
+      "channels/\(channelId.rawValue)/messages/pins/\(messageId.rawValue)"
+    case .voteInPoll(let channelId, let messageId):
+      "channels/\(channelId.rawValue)/polls/\(messageId.rawValue)/answers/@me"
+    case .refreshAttachmentURLs:
+      "attachments/refresh-urls"
+    case .acceptMessageRequest(let channelId), .rejectMessageRequest(let channelId):
+      "channels/\(channelId.rawValue)/recipients/@me"
+    }
+  }
+
+  var httpMethod: HTTPMethod {
+    switch self {
+    case .listPins: .GET
+    case .pinMessage, .voteInPoll, .acceptMessageRequest: .PUT
+    case .refreshAttachmentURLs: .POST
+    case .unpinMessage, .rejectMessageRequest: .DELETE
+    }
+  }
+
+  var parameters: [String] {
+    switch self {
+    case .listPins(let channelId), .acceptMessageRequest(let channelId),
+      .rejectMessageRequest(let channelId):
+      [channelId.rawValue]
+    case .pinMessage(let channelId, let messageId),
+      .unpinMessage(let channelId, let messageId),
+      .voteInPoll(let channelId, let messageId):
+      [channelId.rawValue, messageId.rawValue]
+    case .refreshAttachmentURLs:
+      []
+    }
+  }
+
+  var id: Int {
+    switch self {
+    case .listPins: 186
+    case .pinMessage: 187
+    case .unpinMessage: 188
+    case .voteInPoll: 189
+    case .refreshAttachmentURLs: 190
+    case .acceptMessageRequest: 191
+    case .rejectMessageRequest: 192
+    }
+  }
+
+  public var description: String {
+    switch self {
+    case .listPins(let channelId): "listUserPins(channelId: \(channelId.rawValue))"
+    case .pinMessage(let channelId, let messageId):
+      "pinUserMessage(channelId: \(channelId.rawValue), messageId: \(messageId.rawValue))"
+    case .unpinMessage(let channelId, let messageId):
+      "unpinUserMessage(channelId: \(channelId.rawValue), messageId: \(messageId.rawValue))"
+    case .voteInPoll(let channelId, let messageId):
+      "voteInPoll(channelId: \(channelId.rawValue), messageId: \(messageId.rawValue))"
+    case .refreshAttachmentURLs: "refreshAttachmentURLs"
+    case .acceptMessageRequest(let channelId):
+      "acceptMessageRequest(channelId: \(channelId.rawValue))"
+    case .rejectMessageRequest(let channelId):
+      "rejectMessageRequest(channelId: \(channelId.rawValue))"
+    }
+  }
+}
+
 public enum UserAPIEndpoint: Endpoint {
   // MARK: - Authentication
   case getExperiments
@@ -69,6 +147,7 @@ public enum UserAPIEndpoint: Endpoint {
   // MARK: - Messages
   case createAttachments(channelId: ChannelSnowflake)
   case deleteAttachment(uploadFilename: String)
+  case messaging(UserMessagingEndpoint)
 
   // MARK: - Payments
 
@@ -216,6 +295,8 @@ public enum UserAPIEndpoint: Endpoint {
       suffix = "channels/\(channelId.rawValue)/attachments"
     case .deleteAttachment(let filename):
       suffix = "attachments/\(filename)"
+    case .messaging(let endpoint):
+      suffix = endpoint.path
 
     // MARK: - Relationships
     case .getRelationships:
@@ -375,6 +456,8 @@ public enum UserAPIEndpoint: Endpoint {
       suffix = "channels/\(channelId.rawValue)/attachments"
     case .deleteAttachment(let filename):
       suffix = "attachments/\(filename)"
+    case .messaging(let endpoint):
+      suffix = endpoint.path
     case .getRelationships:
       suffix = "users/@me/relationships"
     case .sendFriendRequest:
@@ -493,6 +576,7 @@ public enum UserAPIEndpoint: Endpoint {
     case .revokeUserInvites: return .DELETE
     case .createAttachments: return .POST
     case .deleteAttachment: return .DELETE
+    case .messaging(let endpoint): return endpoint.httpMethod
     case .getRelationships: return .GET
     case .sendFriendRequest: return .POST
     case .createRelationship: return .PUT
@@ -555,6 +639,7 @@ public enum UserAPIEndpoint: Endpoint {
     case .revokeUserInvites: return true
     case .createAttachments: return true
     case .deleteAttachment: return true
+    case .messaging: return true
     case .getRelationships: return true
     case .sendFriendRequest: return true
     case .createRelationship: return true
@@ -617,6 +702,7 @@ public enum UserAPIEndpoint: Endpoint {
     case .revokeUserInvites: return true
     case .createAttachments: return true
     case .deleteAttachment: return true
+    case .messaging: return true
     case .getRelationships: return true
     case .sendFriendRequest: return true
     case .createRelationship: return true
@@ -680,6 +766,7 @@ public enum UserAPIEndpoint: Endpoint {
     case .revokeUserInvites: return []
     case .createAttachments(let channelId): return [channelId.rawValue]
     case .deleteAttachment(let uploadFilename): return [uploadFilename]
+    case .messaging(let endpoint): return endpoint.parameters
     case .getRelationships: return []
     case .sendFriendRequest: return []
     case .createRelationship(let userId): return [userId.rawValue]
@@ -769,6 +856,7 @@ public enum UserAPIEndpoint: Endpoint {
     case .revokeUserInvites: return 54
     case .createAttachments: return 50
     case .deleteAttachment: return 51
+    case .messaging(let endpoint): return endpoint.id
     case .getRelationships: return 55
     case .sendFriendRequest: return 56
     case .createRelationship: return 57
@@ -849,6 +937,8 @@ public enum UserAPIEndpoint: Endpoint {
       return "createAttachments(channelId: \(channelId.rawValue))"
     case .deleteAttachment(let filename):
       return "deleteAttachment(filename: \(filename))"
+    case .messaging(let endpoint):
+      return endpoint.description
     case .getRelationships: return "getRelationships"
     case .sendFriendRequest: return "sendFriendRequest"
     case .createRelationship(let userId):

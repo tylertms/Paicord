@@ -7,6 +7,44 @@ import XCTest
 
 class DiscordModelsTests: XCTestCase {
 
+  func testUserMessagingEndpointRoutes() {
+    let endpoints: [(UserAPIEndpoint, String, String)] = [
+      (.messaging(.listPins(channelId: "1")), "channels/1/messages/pins", "GET"),
+      (
+        .messaging(.pinMessage(channelId: "1", messageId: "2")), "channels/1/messages/pins/2", "PUT"
+      ),
+      (
+        .messaging(.unpinMessage(channelId: "1", messageId: "2")), "channels/1/messages/pins/2",
+        "DELETE"
+      ),
+      (
+        .messaging(.voteInPoll(channelId: "1", messageId: "2")), "channels/1/polls/2/answers/@me",
+        "PUT"
+      ),
+      (.messaging(.refreshAttachmentURLs), "attachments/refresh-urls", "POST"),
+      (.messaging(.acceptMessageRequest(channelId: "1")), "channels/1/recipients/@me", "PUT"),
+      (.messaging(.rejectMessageRequest(channelId: "1")), "channels/1/recipients/@me", "DELETE"),
+    ]
+
+    for (endpoint, path, method) in endpoints {
+      XCTAssertTrue(endpoint.url.hasSuffix(path))
+      XCTAssertEqual(endpoint.httpMethod.rawValue, method)
+      XCTAssertTrue(endpoint.requiresAuthorizationHeader)
+    }
+  }
+
+  func testPollVoteAllowsClearingSelection() {
+    XCTAssertTrue(Payloads.VoteInPoll(answer_ids: []).validate().isEmpty)
+  }
+
+  func testAttachmentRefreshLimitsURLCount() {
+    XCTAssertTrue(Payloads.RefreshAttachmentURLs(attachment_urls: ["url"]).validate().isEmpty)
+    XCTAssertFalse(
+      Payloads.RefreshAttachmentURLs(attachment_urls: Array(repeating: "url", count: 51))
+        .validate().isEmpty
+    )
+  }
+
   func testPreloadedUserSettingsStatusSettingsGatewayStatus() throws {
     var statusSettings =
       DiscordProtos_DiscordUsers_V1_PreloadedUserSettings.StatusSettings()
